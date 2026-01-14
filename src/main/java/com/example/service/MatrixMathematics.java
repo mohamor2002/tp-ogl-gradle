@@ -12,6 +12,7 @@ public class MatrixMathematics {
 	
 	
 	/**
+	 * 
 	 * Determinant of a square matrix
 	 * The following function find the determinant in a recursively. 
 	 * @param matrix
