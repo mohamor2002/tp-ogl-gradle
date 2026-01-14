@@ -134,23 +134,6 @@ pipeline {
                             reportName: 'Javadoc'
                         ])
                         
-                        // Archive JaCoCo coverage report
-                        publishHTML([
-                            allowMissing: false,
-                            alwaysLinkToLastBuild: true,
-                            keepAll: true,
-                            reportDir: 'build/reports/jacoco/test/html',
-                            reportFiles: 'index.html',
-                            reportName: 'JaCoCo Coverage Report'
-                        ])
-                        
-                        // Publish JaCoCo coverage
-                        jacoco(
-                            execPattern: '**/build/jacoco/*.exec',
-                            classPattern: '**/build/classes/java/main',
-                            sourcePattern: '**/src/main/java'
-                        )
-                        
                     } catch (Exception e) {
                         currentBuild.result = 'FAILURE'
                         error "Build failed: ${e.message}"
