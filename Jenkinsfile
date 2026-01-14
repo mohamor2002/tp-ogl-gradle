@@ -75,9 +75,7 @@ pipeline {
                 echo 'Running SonarQube analysis...'
                 script {
                     try {
-                        withSonarQubeEnv('SonarQube') {
-                            bat './gradlew sonar'
-                        }
+                        bat './gradlew sonar'
                     } catch (Exception e) {
                         currentBuild.result = 'FAILURE'
                         error "SonarQube analysis failed: ${e.message}"
@@ -295,7 +293,7 @@ pipeline {
                     """,
                     to: "${EMAIL_TO}",
                     mimeType: 'text/html'
-                    
+
                 )
                 
                 slackSend (
