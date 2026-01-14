@@ -117,9 +117,25 @@ public class MatrixMathematics {
 	 * @return
 	 * @throws NoSquareException
 	 */
-	public static Matrix inverse(Matrix matrix) throws NoSquareException {
-		return (transpose(cofactor(matrix)).multiplyByConstant(1.0/determinant(matrix)));
-	}
-	
+	// public static Matrix inverse(Matrix matrix) throws NoSquareException {
+	// 	return (transpose(cofactor(matrix)).multiplyByConstant(1.0/determinant(matrix)));
+	// }
+	/**
+ * Inverse of a matrix - A-1 * A = I where I is the identity matrix
+ * A matrix that have inverse is called non-singular or invertible. If the matrix does not have inverse it is called singular.
+ * For a singular matrix the values of the inverted matrix are either NAN or Infinity
+ * Only square matrices have inverse and the following method will throw exception if the matrix is not square.
+ * @param matrix
+ * @return
+ * @throws NoSquareException
+ */
+public static Matrix inverse(Matrix matrix) throws NoSquareException {
+    double det = determinant(matrix);
+    if (det == 0) {
+       // We throw an exception to stop the division by zero
+       throw new NoSquareException("Matrix is singular (determinant is 0) and cannot be inverted.");
+    }
+    return (transpose(cofactor(matrix)).multiplyByConstant(1.0/det));
+}
 	
 }
