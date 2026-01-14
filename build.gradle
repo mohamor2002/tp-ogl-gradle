@@ -62,10 +62,17 @@ cucumberReports {
   reports = files('reports/example-report.json')
 }
 
+// Create Javadoc JAR
+java {
+  withJavadocJar()
+  withSourcesJar()
+}
+
 // Configuration de la publication Maven
 publishing {
   publications {
     maven(MavenPublication) {
+      from components.java
       groupId = 'mohamed_amor'
       artifactId = 'gradle'
       version = '1.0'
