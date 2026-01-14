@@ -1,7 +1,192 @@
+buildscript {
+  repositories {
+    mavenCentral()
+  }
+  dependencies {
+    classpath 'com.sun.mail:javax.mail:1.6.2'
+  }
+}
+
+plugins {
+  id 'java'
+  id 'jacoco'
+  id 'maven-publish'
+  id 'org.sonarqube' version '4.4.1.3373'
+  id 'com.github.spacialcircumstances.gradle-cucumber-reporting' version '0.1.23'
+}
+
+group = 'com.example'
+version = '1.0'
+
+repositories {
+  mavenCentral()
+}
 
 dependencies {
   testImplementation 'io.cucumber:cucumber-java:6.0.0'
-    testImplementation 'io.cucumber:cucumber-junit:6.0.0'
-    testImplementation 'junit:junit:4.12'
+  testImplementation 'io.cucumber:cucumber-junit:6.0.0'
+  testImplementation 'junit:junit:4.12'
+}
 
+
+test {
+  useJUnit()
+  outputs.upToDateWhen { false }
+  finalizedBy jacocoTestReport
+}
+
+jacocoTestReport {
+  dependsOn test
+  reports {
+    xml.required = true
+    html.required = true
+  }
+}
+
+sonarqube {
+  properties {
+    property "sonar.projectKey", "matrix-api"
+    property "sonar.projectName", "Matrix API"
+    property "sonar.host.url", "http://localhost:9000"
+    property "sonar.login", "1cb507e55c57262da76254b8c0e56a1216510ecb"
+    property "sonar.gradle.skipCompile", "true"
+  }
+}
+
+tasks.named('sonar') {
+  dependsOn test
+}
+
+cucumberReports {
+  outputDir = file('build/reports/cucumber')
+  reports = files('reports/example-report.json')
+}
+
+// Configuration de la publication Maven
+publishing {
+  publications {
+    maven(MavenPublication) {
+      groupId = 'mohamed_amor'
+      artifactId = 'gradle'
+      version = '1.0'
+    }
+  }
+
+  repositories {
+    maven {
+      name = 'MyMavenRepo'
+      url = uri('https://mymavenrepo.com/repo/cEmjfkxugPlzLxXg1A2B')
+      allowInsecureProtocol = true
+      credentials {
+        username = 'myMavenRepo'
+        password = 'test0005'
+      }
+    }
+  }
+}
+
+tasks.register('sendSlackNotification') {
+  doLast {
+    def slackWebhookUrl = 'https://hooks.slack.com/services/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'
+
+    if (slackWebhookUrl.isEmpty()) {
+      println "Slack Webhook URL non configurée"
+      return
+    }
+
+    def message = [
+            text: "Déploiement réussi!",
+            blocks: [
+                    [
+                            type: "section",
+                            text: [
+                                    type: "mrkdwn",
+                                    text: "*Déploiement de Matrix API réussi!*\n" +
+                                            "• Version: ${project.version}\n" +
+                                            "• Artifact: ${project.group}:${project.name}:${project.version}\n" +
+                                            "• Date: ${new Date().format('dd/MM/yyyy HH:mm:ss')}"
+                            ]
+                    ]
+            ]
+    ]
+
+    def json = groovy.json.JsonOutput.toJson(message)
+
+    def connection = new URL(slackWebhookUrl).openConnection()
+    connection.setRequestMethod("POST")
+    connection.setDoOutput(true)
+    connection.setRequestProperty("Content-Type", "application/json")
+
+    connection.outputStream.withWriter { writer ->
+      writer.write(json)
+    }
+
+    def responseCode = connection.responseCode
+    if (responseCode == 200) {
+      println "Notification Slack envoyée avec succès!"
+    } else {
+      println "Erreur lors de l'envoi de la notification Slack: ${responseCode}"
+    }
+  }
+}
+
+tasks.register('sendEmailNotification') {
+  doLast {
+    def emailFrom = 'lm_amor@esi.dz'
+    def emailPassword = 'ajnlibpgdnrlxopb'
+    def emailTo = 'lm_amor@esi.dz'
+
+    if (emailFrom.isEmpty() || emailPassword.isEmpty() || emailTo.isEmpty()) {
+      println "⚠️  Email not configured"
+      return
+    }
+
+    try {
+      def props = new Properties()
+      props.put("mail.smtp.auth", "true")
+      props.put("mail.smtp.starttls.enable", "true")
+      props.put("mail.smtp.host", "smtp.gmail.com")
+      props.put("mail.smtp.port", "587")
+      props.put("mail.smtp.ssl.trust", "smtp.gmail.com")
+      props.put("mail.smtp.ssl.protocols", "TLSv1.2")
+
+      def session = javax.mail.Session.getInstance(props,
+              new javax.mail.Authenticator() {
+                protected javax.mail.PasswordAuthentication getPasswordAuthentication() {
+                  return new javax.mail.PasswordAuthentication(emailFrom, emailPassword)
+                }
+              }
+      )
+
+      def message = new javax.mail.internet.MimeMessage(session)
+      message.setFrom(new javax.mail.internet.InternetAddress(emailFrom))
+      message.setRecipients(
+              javax.mail.Message.RecipientType.TO,
+              javax.mail.internet.InternetAddress.parse(emailTo)
+      )
+      message.setSubject("Deployment: ${project.name} v${project.version}")
+      message.setText("""
+Deployment Successful!
+
+Project: ${project.name}
+Version: ${project.version}
+Artifact: ${project.group}:${project.name}:${project.version}
+Date: ${new Date().format('dd/MM/yyyy HH:mm:ss')}
+
+The library has been successfully deployed to Maven repository.
+""")
+
+      javax.mail.Transport.send(message)
+
+      println "✅ Email notification sent to ${emailTo}"
+
+    } catch (Exception e) {
+      println "Email error: ${e.message}"
+      e.printStackTrace()
+    }
+  }
+}
+
+tasks.named('publish') {
+  finalizedBy sendSlackNotification, sendEmailNotification
 }
