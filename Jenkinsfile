@@ -1,316 +1,94 @@
 pipeline {
     agent any
-    
-    environment {
-        // SonarQube configuration
-        SONAR_HOST_URL = 'http://localhost:9000'
-        SONAR_TOKEN = '1cb507e55c57262da76254b8c0e56a1216510ecb'
-        
-        // Maven repository credentials
-        MAVEN_REPO_USERNAME = 'myMavenRepo'
-        MAVEN_REPO_PASSWORD = 'test0005'
-        
-        // Email configuration
-        EMAIL_FROM = 'lm_amor@esi.dz'
-        EMAIL_PASSWORD = 'onvilblgbfugscpz'
-        EMAIL_TO = 'lm_amor@esi.dz'
-        
-        // Slack configuration
-        SLACK_WEBHOOK = 'https://hooks.slack.com/services/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'
-        SLACK_CHANNEL = '#jenkins-notifications'
-    }
-    
+
     stages {
-        stage('Checkout') {
-            steps {
-                echo 'Checking out code from repository...'
-                checkout scm
-            }
-        }
-        
+        // 2.1 La phase Test
         stage('Test') {
             steps {
-                echo 'Running unit tests and generating Cucumber reports...'
-                script {
-                    try {
-                        // Run tests
-                        bat './gradlew clean test'
-                        
-                        // Generate Cucumber reports
-                        bat './gradlew generateCucumberReports'
-                        
-                        // Archive test results
-                        junit '**/build/test-results/test/*.xml'
-                        
-                        // Publish Cucumber reports
-                        publishHTML([
-                            allowMissing: false,
-                            alwaysLinkToLastBuild: true,
-                            keepAll: true,
-                            reportDir: 'build/reports/cucumber/cucumber-html-reports',
-                            reportFiles: 'overview-features.html',
-                            reportName: 'Cucumber Report'
-                        ])
-                        
-                        // Publish JUnit test reports
-                        publishHTML([
-                            allowMissing: false,
-                            alwaysLinkToLastBuild: true,
-                            keepAll: true,
-                            reportDir: 'build/reports/tests/test',
-                            reportFiles: 'index.html',
-                            reportName: 'JUnit Test Report'
-                        ])
-                        
-                    } catch (Exception e) {
-                        currentBuild.result = 'FAILURE'
-                        error "Tests failed: ${e.message}"
-                    }
+                // 1. Lancement des tests unitaires (Windows)
+                bat 'gradlew test'
+            }
+            post {
+                always {
+                    // 2. Archivage des résultats des tests unitaires
+                    junit 'build/test-results/test/*.xml'
+
+                    // 3. Génération des rapports de tests Cucumber
+                    // UPDATED: Looks in 'reports/' to match your Java code
+                    cucumber 'reports/*.json'
                 }
             }
         }
-        
+
+        // 2.2 La phase Code Analysis
         stage('Code Analysis') {
             steps {
-                echo 'Running SonarQube analysis...'
-                script {
-                    try {
-                        withSonarQubeEnv() {
-                            bat './gradlew sonar'
-                        }
-                        echo 'SonarQube analysis completed successfully.'
-                    } catch (Exception e) {
-                        currentBuild.result = 'FAILURE'
-                        error "SonarQube analysis failed: ${e.message}"
-                    }
+                withSonarQubeEnv('sonar') {
+                    // Analyse la qualité du code avec SonarQube
+                    bat 'gradlew sonar'
                 }
             }
         }
-        
-        stage('Quality Gate') {
+
+        // 2.3 La phase Code Quality
+        stage('Code Quality') {
             steps {
-                echo 'Checking SonarQube Quality Gate...'
-                script {
-                    try {
-                        timeout(time: 5, unit: 'MINUTES') {
-                            def qg = waitForQualityGate()
-                            if (qg.status != 'OK') {
-                                currentBuild.result = 'FAILURE'
-                                error "Quality Gate failed with status: ${qg.status}"
-                            }
-                            echo "✓ Quality Gate passed with status: ${qg.status}"
-                        }
-                    } catch (Exception e) {
-                        currentBuild.result = 'FAILURE'
-                        error "Quality Gate check failed: ${e.message}"
-                    }
+                timeout(time: 1, unit: 'HOURS') {
+                    // Stop pipeline if Quality Gate is Failed
+                    waitForQualityGate abortPipeline: true
                 }
             }
         }
-        
+
+        // 2.4 La phase Build
         stage('Build') {
             steps {
-                echo 'Building JAR and generating documentation...'
-                script {
-                    try {
-                        // Build JAR
-                        bat './gradlew jar'
-                        
-                        // Generate Javadoc
-                        bat './gradlew javadoc'
-                        
-                        // Archive JAR artifacts
-                        archiveArtifacts artifacts: '**/build/libs/*.jar', 
-                                       fingerprint: true,
-                                       allowEmptyArchive: false
-                        
-                        // Archive Javadoc
-                        publishHTML([
-                            allowMissing: false,
-                            alwaysLinkToLastBuild: true,
-                            keepAll: true,
-                            reportDir: 'build/docs/javadoc',
-                            reportFiles: 'index.html',
-                            reportName: 'Javadoc'
-                        ])
-                        
-                    } catch (Exception e) {
-                        currentBuild.result = 'FAILURE'
-                        error "Build failed: ${e.message}"
-                    }
+                // 1. Génération du fichier Jar
+                bat 'gradlew assemble'
+
+                // 2. Génération de la documentation
+                bat 'gradlew javadoc'
+            }
+            post {
+                success {
+                    // 3. Archivage du fichier Jar et de la documentation
+                    archiveArtifacts artifacts: 'build/libs/*.jar, build/docs/javadoc/**'
                 }
             }
         }
-        
+
+        // 2.5 La phase Deploy
         stage('Deploy') {
             steps {
-                echo 'Deploying to MyMavenRepo...'
-                script {
-                    try {
-                        // Publish to Maven repository
-                        bat './gradlew publish'
-                        echo 'Artifact successfully deployed to MyMavenRepo!'
-                        
-                    } catch (Exception e) {
-                        currentBuild.result = 'FAILURE'
-                        error "Deployment failed: ${e.message}"
-                    }
-                }
+                // Déployer le fichier Jar
+                bat 'gradlew publish'
             }
         }
     }
-    
+
+    // 2.6 La phase Notification
     post {
         success {
-            echo 'Pipeline completed successfully!'
-            script {
-                // Send Slack notification
-                try {
-                    bat './gradlew sendSlackNotification'
-                } catch (Exception e) {
-                    echo "Slack notification failed: ${e.message}"
-                }
-                
-                // Send Email notification
-                try {
-                    bat './gradlew sendEmailNotification'
-                } catch (Exception e) {
-                    echo "Email notification failed: ${e.message}"
-                }
-                
-                // Alternative: Use Jenkins email plugin
-                emailext (
-                    subject: "SUCCESS: Pipeline '${env.JOB_NAME}' [${env.BUILD_NUMBER}]",
-                    body: """
-                        <html>
-                        <body>
-                            <h2>Build Success</h2>
-                            <p><strong>Job:</strong> ${env.JOB_NAME}</p>
-                            <p><strong>Build Number:</strong> ${env.BUILD_NUMBER}</p>
-                            <p><strong>Status:</strong> SUCCESS</p>
-                            <p><strong>Build URL:</strong> <a href="${env.BUILD_URL}">${env.BUILD_URL}</a></p>
-                            <p>The Matrix API has been successfully built, tested, and deployed!</p>
-                            <hr>
-                            <h3>Pipeline Stages:</h3>
-                            <ul>
-                                <li>✅ Tests Passed</li>
-                                <li>✅ Code Analysis Complete</li>
-                                <li>✅ Quality Gate Passed</li>
-                                <li>✅ Build Successful</li>
-                                <li>✅ Deployment Complete</li>
-                            </ul>
-                        </body>
-                        </html>
-                    """,
-                    to: "${EMAIL_TO}",
-                    mimeType: 'text/html'
-                )
-                
-                // Alternative: Use Jenkins Slack plugin
-                slackSend (
-                    color: 'good',
-                    channel: "${SLACK_CHANNEL}",
-                    message: """
-                        *BUILD SUCCESS* :white_check_mark:
-                        Job: `${env.JOB_NAME}`
-                        Build: `#${env.BUILD_NUMBER}`
-                        Branch: `${env.BRANCH_NAME}`
-                        Status: SUCCESS
-                        <${env.BUILD_URL}|View Build>
-                    """
-                )
-            }
-        }
-        
-        failure {
-            echo 'Pipeline failed!'
-            script {
-                // Send failure notification via Email
-                emailext (
-                    subject: "❌ FAILURE: Pipeline '${env.JOB_NAME}' [${env.BUILD_NUMBER}]",
-                    body: """
-                        <html>
-                        <body style="font-family: Arial, sans-serif;">
-                            <h2 style="color: #d9534f;">❌ Build Failed</h2>
-                            <p><strong>Job:</strong> ${env.JOB_NAME}</p>
-                            <p><strong>Build Number:</strong> ${env.BUILD_NUMBER}</p>
-                            <p><strong>Status:</strong> <span style="color: #d9534f;">FAILURE</span></p>
-                            <p><strong>Build URL:</strong> <a href="${env.BUILD_URL}">${env.BUILD_URL}</a></p>
-                            <p><strong>Started By:</strong> ${env.BUILD_USER != null ? env.BUILD_USER : 'Automated'}</p>
-                            <p><strong>Duration:</strong> ${currentBuild.durationString}</p>
-                            <p style="color: #d9534f;"><strong>The pipeline has failed. Please check the console output for details.</strong></p>
-                            <hr>
-                            <h3>Quick Links:</h3>
-                            <ul>
-                                <li><a href="${env.BUILD_URL}console">View Console Output</a></li>
-                                <li><a href="${env.BUILD_URL}changes">View Changes</a></li>
-                                <li><a href="${env.BUILD_URL}artifacts">View Artifacts</a></li>
-                            </ul>
-                        </body>
-                        </html>
-                    """,
-                    to: "${EMAIL_TO}",
-                    mimeType: 'text/html',
-                    recipientProviders: [
-                        developers(),
-                        requestor(),
-                        brokenBuildSuspects()
-                    ]
-                )
-                
-                // Send failure notification via Slack
-                slackSend (
-                    color: 'danger',
-                    channel: "${SLACK_CHANNEL}",
-                    message: """
-                        *BUILD FAILED* :x:
-                        Job: `${env.JOB_NAME}`
-                        Build: `#${env.BUILD_NUMBER}`
-                        Branch: `${env.BRANCH_NAME}`
-                        Status: FAILURE
-                        <${env.BUILD_URL}console|View Console Output>
-                    """
-                )
-            }
-        }
-        
-        unstable {
-            echo 'Pipeline is unstable!'
-            script {
-                emailext (
-                    subject: "UNSTABLE: Pipeline '${env.JOB_NAME}' [${env.BUILD_NUMBER}]",
-                    body: """
-                        <html>
-                        <body>
-                            <h2 style="color: #f0ad4e;">Build Unstable</h2>
-                            <p><strong>Job:</strong> ${env.JOB_NAME}</p>
-                            <p><strong>Build Number:</strong> ${env.BUILD_NUMBER}</p>
-                            <p><strong>Status:</strong> UNSTABLE</p>
-                            <p><strong>Build URL:</strong> <a href="${env.BUILD_URL}">${env.BUILD_URL}</a></p>
-                        </body>
-                        </html>
-                    """,
-                    to: "${EMAIL_TO}",
-                    mimeType: 'text/html'
+            // Email Notification success
+            mail to: 'lm_amor@esi.dz',
+                    subject: "Success: ${currentBuild.fullDisplayName}",
+                    body: "The build and deploy were successful."
 
-                )
-                
-                slackSend (
-                    color: 'warning',
-                    channel: "${SLACK_CHANNEL}",
-                    message: """
-                        *BUILD UNSTABLE* :warning:
-                        Job: `${env.JOB_NAME}`
-                        Build: `#${env.BUILD_NUMBER}`
-                        <${env.BUILD_URL}|View Build>
-                    """
-                )
-            }
+            // Slack Notification success
+            slackSend color: 'good',
+                    channel: 'tp_ogl_gradle', // CHANGE THIS to your actual channel name
+                    message: "Build Success: ${currentBuild.fullDisplayName} (<${env.BUILD_URL}|Open>)"
         }
-        
-        always {
-            echo 'Cleaning up workspace...'
-            cleanWs()
+        failure {
+            // Email Notification failure
+            mail to: 'lm_amor@esi.dz',
+                    subject: "Failed: ${currentBuild.fullDisplayName}",
+                    body: "The pipeline failed in stage: ${env.STAGE_NAME}"
+
+            // Slack Notification failure
+            slackSend color: 'danger',
+                    channel: 'tp_ogl_gradle', // CHANGE THIS to your actual channel name
+                    message: "Build Failed: ${currentBuild.fullDisplayName} in stage ${env.STAGE_NAME} (<${env.BUILD_URL}|Open>)"
         }
     }
 }
