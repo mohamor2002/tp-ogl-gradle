@@ -76,10 +76,30 @@ pipeline {
                 script {
                     try {
                         bat './gradlew sonar'
-                        echo 'SonarQube analysis completed. Check SonarQube dashboard for results.'
+                        echo 'SonarQube analysis completed successfully.'
                     } catch (Exception e) {
-                        echo "Warning: SonarQube analysis failed: ${e.message}"
-                        // Don't fail the build, just warn
+                        currentBuild.result = 'FAILURE'
+                        error "SonarQube analysis failed: ${e.message}"
+                    }
+                }
+            }
+        }
+        
+        stage('Quality Gate') {
+            steps {
+                echo 'Checking SonarQube Quality Gate...'
+                script {
+                    try {
+                        timeout(time: 5, unit: 'MINUTES') {
+                            def qg = waitForQualityGate()
+                            if (qg.status != 'OK') {
+                                error "Quality Gate failed: ${qg.status}"
+                            }
+                            echo "Quality Gate passed with status: ${qg.status}"
+                        }
+                    } catch (Exception e) {
+                        currentBuild.result = 'FAILURE'
+                        error "Quality Gate check failed: ${e.message}"
                     }
                 }
             }
