@@ -220,6 +220,20 @@ pipeline {
                     to: "${EMAIL_TO}",
                     mimeType: 'text/html'
                 )
+                
+                // Alternative: Use Jenkins Slack plugin
+                slackSend (
+                    color: 'good',
+                    channel: "${SLACK_CHANNEL}",
+                    message: """
+                        *BUILD SUCCESS* :white_check_mark:
+                        Job: `${env.JOB_NAME}`
+                        Build: `#${env.BUILD_NUMBER}`
+                        Branch: `${env.BRANCH_NAME}`
+                        Status: SUCCESS
+                        <${env.BUILD_URL}|View Build>
+                    """
+                )
             }
         }
         
@@ -246,6 +260,20 @@ pipeline {
                     to: "${EMAIL_TO}",
                     mimeType: 'text/html'
                 )
+                
+                // Send failure notification via Slack
+                slackSend (
+                    color: 'danger',
+                    channel: "${SLACK_CHANNEL}",
+                    message: """
+                        *BUILD FAILED* :x:
+                        Job: `${env.JOB_NAME}`
+                        Build: `#${env.BUILD_NUMBER}`
+                        Branch: `${env.BRANCH_NAME}`
+                        Status: FAILURE
+                        <${env.BUILD_URL}console|View Console Output>
+                    """
+                )
             }
         }
         
@@ -267,6 +295,18 @@ pipeline {
                     """,
                     to: "${EMAIL_TO}",
                     mimeType: 'text/html'
+                    
+                )
+                
+                slackSend (
+                    color: 'warning',
+                    channel: "${SLACK_CHANNEL}",
+                    message: """
+                        *BUILD UNSTABLE* :warning:
+                        Job: `${env.JOB_NAME}`
+                        Build: `#${env.BUILD_NUMBER}`
+                        <${env.BUILD_URL}|View Build>
+                    """
                 )
             }
         }
