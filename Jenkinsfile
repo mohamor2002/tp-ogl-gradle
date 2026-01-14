@@ -18,12 +18,6 @@ pipeline {
         // Slack configuration
         SLACK_WEBHOOK = 'https://hooks.slack.com/services/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'
         SLACK_CHANNEL = '#jenkins-notifications'
-        
-    }
-    
-    tools {
-        gradle 'Gradle 8.4'
-        jdk 'JDK 11'
     }
     
     stages {
