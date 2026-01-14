@@ -4,13 +4,19 @@ pipeline {
     environment {
         // SonarQube configuration
         SONAR_HOST_URL = 'http://localhost:9000'
-        SONAR_TOKEN = credentials('sonar-token') // Store in Jenkins credentials
+        SONAR_TOKEN = '1cb507e55c57262da76254b8c0e56a1216510ecb'
         
         // Maven repository credentials
-        MAVEN_REPO_CREDENTIALS = credentials('mymavenrepo-credentials')
+        MAVEN_REPO_USERNAME = 'myMavenRepo'
+        MAVEN_REPO_PASSWORD = 'test0005'
         
-        // Email and Slack configuration
-        EMAIL_RECIPIENTS = 'lm_amor@esi.dz'
+        // Email configuration
+        EMAIL_FROM = 'lm_amor@esi.dz'
+        EMAIL_PASSWORD = 'ajnlibpgdnrlxopb'
+        EMAIL_TO = 'lm_amor@esi.dz'
+        
+        // Slack configuration
+        SLACK_WEBHOOK = 'https://hooks.slack.com/services/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'
         SLACK_CHANNEL = '#jenkins-notifications'
     }
     
@@ -216,7 +222,7 @@ pipeline {
                         </body>
                         </html>
                     """,
-                    to: "${EMAIL_RECIPIENTS}",
+                    to: "${EMAIL_TO}",
                     mimeType: 'text/html'
                 )
                 
@@ -256,7 +262,7 @@ pipeline {
                         </body>
                         </html>
                     """,
-                    to: "${EMAIL_RECIPIENTS}",
+                    to: "${EMAIL_TO}",
                     mimeType: 'text/html'
                 )
                 
@@ -292,7 +298,7 @@ pipeline {
                         </body>
                         </html>
                     """,
-                    to: "${EMAIL_RECIPIENTS}",
+                    to: "${EMAIL_TO}",
                     mimeType: 'text/html'
                 )
                 
