@@ -75,7 +75,9 @@ pipeline {
                 echo 'Running SonarQube analysis...'
                 script {
                     try {
-                        bat './gradlew sonar'
+                        withSonarQubeEnv('SonarQube') {
+                            bat './gradlew sonar'
+                        }
                         echo 'SonarQube analysis completed successfully.'
                     } catch (Exception e) {
                         currentBuild.result = 'FAILURE'
@@ -93,9 +95,10 @@ pipeline {
                         timeout(time: 5, unit: 'MINUTES') {
                             def qg = waitForQualityGate()
                             if (qg.status != 'OK') {
-                                error "Quality Gate failed: ${qg.status}"
+                                currentBuild.result = 'FAILURE'
+                                error "Quality Gate failed with status: ${qg.status}"
                             }
-                            echo "Quality Gate passed with status: ${qg.status}"
+                            echo "✓ Quality Gate passed with status: ${qg.status}"
                         }
                     } catch (Exception e) {
                         currentBuild.result = 'FAILURE'
@@ -241,23 +244,35 @@ pipeline {
             script {
                 // Send failure notification via Email
                 emailext (
-                    subject: "FAILURE: Pipeline '${env.JOB_NAME}' [${env.BUILD_NUMBER}]",
+                    subject: "❌ FAILURE: Pipeline '${env.JOB_NAME}' [${env.BUILD_NUMBER}]",
                     body: """
                         <html>
                         <body style="font-family: Arial, sans-serif;">
-                            <h2 style="color: #d9534f;">Build Failed</h2>
+                            <h2 style="color: #d9534f;">❌ Build Failed</h2>
                             <p><strong>Job:</strong> ${env.JOB_NAME}</p>
                             <p><strong>Build Number:</strong> ${env.BUILD_NUMBER}</p>
                             <p><strong>Status:</strong> <span style="color: #d9534f;">FAILURE</span></p>
                             <p><strong>Build URL:</strong> <a href="${env.BUILD_URL}">${env.BUILD_URL}</a></p>
-                            <p style="color: #d9534f;">The pipeline has failed. Please check the console output for details.</p>
+                            <p><strong>Started By:</strong> ${env.BUILD_USER != null ? env.BUILD_USER : 'Automated'}</p>
+                            <p><strong>Duration:</strong> ${currentBuild.durationString}</p>
+                            <p style="color: #d9534f;"><strong>The pipeline has failed. Please check the console output for details.</strong></p>
                             <hr>
-                            <p><a href="${env.BUILD_URL}console">View Console Output</a></p>
+                            <h3>Quick Links:</h3>
+                            <ul>
+                                <li><a href="${env.BUILD_URL}console">View Console Output</a></li>
+                                <li><a href="${env.BUILD_URL}changes">View Changes</a></li>
+                                <li><a href="${env.BUILD_URL}artifacts">View Artifacts</a></li>
+                            </ul>
                         </body>
                         </html>
                     """,
                     to: "${EMAIL_TO}",
-                    mimeType: 'text/html'
+                    mimeType: 'text/html',
+                    recipientProviders: [
+                        developers(),
+                        requestor(),
+                        brokenBuildSuspects()
+                    ]
                 )
                 
                 // Send failure notification via Slack
