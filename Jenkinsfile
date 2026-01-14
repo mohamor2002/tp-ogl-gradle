@@ -75,7 +75,7 @@ pipeline {
                 echo 'Running SonarQube analysis...'
                 script {
                     try {
-                        withSonarQubeEnv('SonarQube') {
+                        withSonarQubeEnv() {
                             bat './gradlew sonar'
                         }
                         echo 'SonarQube analysis completed successfully.'
