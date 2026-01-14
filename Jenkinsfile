@@ -12,7 +12,7 @@ pipeline {
         
         // Email configuration
         EMAIL_FROM = 'lm_amor@esi.dz'
-        EMAIL_PASSWORD = 'ajnlibpgdnrlxopb'
+        EMAIL_PASSWORD = 'onvilblgbfugscpz'
         EMAIL_TO = 'lm_amor@esi.dz'
         
         // Slack configuration
